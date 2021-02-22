@@ -1,58 +1,68 @@
 # mobile-bdd-appium
 
-**Behaviour-driven UI automation for an Android app, written in plain English and run on an emulator.**
+**Behaviour-driven UI tests for an Android weather app: plain-English scenarios, run on an emulator through Appium.**
 
-This is one of my early test-automation projects (2021). I wrote the test scenarios the way a user would describe them, then wired each step to real taps and checks on an Android weather app through Appium.
+The scenario describes what a hiker expects from the app. Each step taps through the real app screens and checks what is actually displayed, not what the app claims happened.
 
 ## What it tests
 
 ```gherkin
 Feature: Weather
-  In order to improve my hike today
+  In order to plan my hike today
   As a keen hiker
   I want to be able to view today's weather
 
-  @Smoke @Regression
+  @smoke @regression
   Scenario: Get the high level weather forecast
     Given I have an internet connection
     When I have successfully downloaded the weather data
     Then I can see the weather and temperature for today
 ```
 
-Each line is checked on the real app screen, not assumed:
-
-| Step | What the automation actually does |
+| Step | What the automation does |
 |---|---|
-| **Given** I have an internet connection | Reads the connection indicator on screen and asserts it shows *Connected* |
-| **When** I download the weather data | Taps *Fetch data*, waits for the *Data Collected* confirmation, then opens the results |
-| **Then** I can see today's weather | Locates the weather and temperature fields on the results screen and verifies them |
+| **Given** I have an internet connection | Waits for the connection indicator on the first screen and checks it is shown |
+| **When** I download the weather data | Taps *Fetch data*, checks the status reads exactly *Data Collected*, then opens the results |
+| **Then** I can see today's weather | Checks a weather summary is shown and the temperature is a real reading such as `10.39C` or `-2 °C` |
+
+The last check validates the format, not one day's forecast, so the test doesn't break when the weather changes.
 
 ## How it's built
 
-| Piece | File | Role |
-|---|---|---|
-| Feature file | `resources/weather.feature` | The scenario in Gherkin (Given / When / Then), tagged `@Smoke` and `@Regression` |
-| Step definitions | `src/test/java/.../stepdefintion.java` | Glue code: starts the Appium session and turns each sentence into actions and assertions |
-| Page objects | `outdoordata.java`, `weatherpage.java` | One class per screen, with elements located by resource ID (Page Object Model + `PageFactory`) |
+```
+src/test/
+├── resources/features/weather.feature   ← scenario in plain English
+└── java/weather/
+    ├── runner/RunCucumberTest.java      ← JUnit entry point for `mvn test`, HTML report
+    ├── steps/WeatherSteps.java          ← each sentence → taps + assertions
+    ├── steps/Hooks.java                 ← start / end the Appium session
+    ├── pages/ConnectionScreen.java      ← screen objects, one per app screen
+    ├── pages/FetchDataScreen.java
+    ├── pages/WeatherScreen.java
+    ├── pages/BasePage.java              ← element wiring + explicit waits
+    └── support/DriverFactory.java       ← device and app settings, overridable
+```
 
-**Stack:** Java · Appium Java client 7.4 · Selenium 3.141 · Cucumber 6.9 (JUnit) · Maven · Android 11 emulator
+- **Screen objects:** element IDs live in one class per screen, so steps read like the scenario.
+- **Explicit waits:** each check waits for the element it needs instead of relying on timing.
+- **Configurable:** device, Android version, app and Appium URL can be changed from the command line without code edits.
+
+**Stack:** Java 8+ · Appium Java client 7.4 (UiAutomator2) · Cucumber 6.9 · JUnit 4 · Maven
 
 ## Run it
 
-1. Start an Android 11 emulator (`emulator-5554`) with the app under test installed.
-2. Start the Appium server on `http://127.0.0.1:4723/wd/hub`.
-3. Run the Cucumber tests:
+1. Start an Android emulator or plug in a device, with the app under test installed.
+2. Start the Appium server (default `http://127.0.0.1:4723/wd/hub`).
+3. Run:
 
    ```bash
    mvn test
    ```
 
-The device and app settings are in the `@Before` hook in `stepdefintion.java`. Change them there to point at your own device or app.
+To target a different device or server:
 
-## What I'd do differently today
+```bash
+mvn test -Ddevice.udid=emulator-5556 -Dplatform.version=12 -Dappium.url=http://127.0.0.1:4723/wd/hub
+```
 
-- Move device capabilities into a config file instead of hard-coding them.
-- Use explicit waits for screen transitions instead of relying on timing.
-- Add a negative scenario (no connection, failed download) alongside the happy path.
-
-That mindset, checking what really happened on screen rather than trusting what the app reports, is the same one I now apply to AI agents in [agent-evals-lab](https://github.com/VenthanGowthamS/agent-evals-lab).
+The report is written to `target/cucumber-report.html`.
