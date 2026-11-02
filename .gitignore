@@ -1,0 +1,9 @@
+# Build output
+target/
+
+# IDE files
+.project
+.classpath
+.settings/
+.idea/
+*.iml
